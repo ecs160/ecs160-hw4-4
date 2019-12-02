@@ -247,7 +247,7 @@ int main(int argc, char const *argv[])
         char *username = curr_line[name_col_index];
         size_t lengthOfUsername = strlen(username);
 
-        printf("249: %s\n", username);
+        // printf("249: %s\n", username);
         if(quotes_flag == 1){
             if (wrappedInQuotations(username) != 0)
             {
@@ -255,7 +255,7 @@ int main(int argc, char const *argv[])
                 exit(1);
             }
         }
-        printf("WORKED\n");
+        // printf("WORKED\n");
         // iterate through all `tweeter_info` struct and check if user already exists
         for (size_t i = 0; i < next_avail_index; i++)
         {
