@@ -200,7 +200,7 @@ int main(int argc, char const *argv[])
 
         for (int i = 0; i < num_of_cols; i++)
         {
-            if (strcmp(header[i], "\"\"\"name\"\"\"") == 0)
+            if (strcmp(header[i], "\"name\"") == 0)
             {
                 name_col_index = i;
                 quotes_flag = 1;
