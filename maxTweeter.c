@@ -6,16 +6,6 @@
 //*************************************
 // * MACRO DEFINITIONS
 //*************************************
-// https://stackoverflow.com/questions/1644868/define-macro-for-debug-printing-in-c
-// MACRO for printing error messages. Disabled when 0 and enabled when 1.
-// ! THIS MUST BE DISABLED BEFORE SUBMISSION
-#define PRINT_OUT 1 // * MODES: 0 - DISABLE, 1 - ENABLE
-#define print_out(fmt, ...)                                          \
-    do                                                               \
-    {                                                                \
-        if (PRINT_OUT)                                               \
-            fprintf(stderr, "%s: " fmt "", __func__, ##__VA_ARGS__); \
-    } while (0)
 #define NUM_LINES 20000
 #define INVALID_INPUT fprintf(stderr, "Invalid Input Format\n")
 
@@ -28,6 +18,7 @@ struct tweeter_info
 struct tweeter_info tweeter[NUM_LINES];
 int next_avail_index;
 int quotes_flag;
+int empty_user_index = -1;
 
 int getCommasCount(char *str)
 {
@@ -51,7 +42,7 @@ int wrappedInQuotations(char *str)
         exit(1);
     }
     int length = strlen(str) - 1;
-    if (length > 0 && str[0] == '\"' && str[length] == '\"')
+    if (length > 0 && str[0] == '\"' && str[1] == '\"' && str[2] == '\"' && str[length] == '\"' && str[length-1] == '\"' && str[length-2] == '\"')
     {
         return 0;
     }
@@ -60,6 +51,49 @@ int wrappedInQuotations(char *str)
     return 0;
 }
 
+int allQuotes(char *str)
+{
+    if (str == NULL)
+    {
+        INVALID_INPUT;
+        exit(1);
+    }
+    // printf("mystr: %s\n", str);
+    int length = strlen(str);
+    for (size_t i = 0; i < length; i++)
+    {
+        if (str[i] != '\"')
+        {
+            return -1;
+        }
+    }
+    
+    return 0;
+}
+
+char * removeQuotes(char *str)
+{
+    if (quotes_flag == 0)
+    {
+        return str;
+    }
+    if (str == NULL)
+    {
+       return str;
+    }
+
+    size_t length_b = strlen(str);
+    str = str + 3;
+
+    if (length_b - 3 == 3)
+    {
+        str[0] = '\0';
+        return str;
+    }
+    str[strlen(str) - 3] = '\0';
+
+    return str;
+}
 
 /* PROCESS LINE TO ARRAY OF STRINGS */
 void procLn2ArrOfStrs(char *str, char **splitted_array)
@@ -92,6 +126,7 @@ void procLn2ArrOfStrs(char *str, char **splitted_array)
             *(count_ptr + alloc_size - 1) = i; // save the location of the comma
         }
     }
+    
     // pad the array with the ending index of the string - (n-1) in the end
     int *count_ptr_tmp = (int *)realloc(count_ptr, sizeof(int) * (alloc_size + 1));
     count_ptr = count_ptr_tmp;
@@ -114,6 +149,7 @@ void procLn2ArrOfStrs(char *str, char **splitted_array)
                 exit(0);
             }
             indicate = 1;
+            splitted_array[i][0] = '\0';
             // printf("Splitted Array: %s\n", splitted_array[i]);
             continue;
         }
@@ -125,13 +161,26 @@ void procLn2ArrOfStrs(char *str, char **splitted_array)
         int next_comma_index = *(count_ptr + i + 1);
         int size_to_alloc = next_comma_index - curr_comma_index - 1;
 
-        splitted_array[i] = (char *)malloc(sizeof(char) * size_to_alloc);
+        if (size_to_alloc  < 1)
+        {
+            splitted_array[i] = (char *)malloc(sizeof(char) * 2);
+            if (splitted_array[i] == NULL)
+            {
+                INVALID_INPUT;
+                exit(0);
+            }
+            splitted_array[i][0] = '\0';
+            splitted_array[i][1] = '\0';
+            continue;
+        }
+
+        splitted_array[i] = (char *)malloc(sizeof(char) * (size_to_alloc+1));
         if (splitted_array[i] == NULL)
         {
             INVALID_INPUT;
             exit(0);
         }
-        
+
         for (int j = curr_comma_index; j < next_comma_index - 1; j++)
         {
             // TWITTER USERNAME RULES, either a letter, a number, and underscore
@@ -144,6 +193,7 @@ void procLn2ArrOfStrs(char *str, char **splitted_array)
             }
             // printf("[%d,%d,%d], ", i, j, j-curr_comma_index);
         }
+        splitted_array[i][size_to_alloc] = '\0';
         // printf("Size to alloc: %d\n", size_to_alloc);
         // printf("Splitted Array: %s\n", splitted_array[i]);
         // printf("\n%d\n", *(count_ptr + i));
@@ -200,7 +250,7 @@ int main(int argc, char const *argv[])
 
         for (int i = 0; i < num_of_cols; i++)
         {
-            if (strcmp(header[i], "\"name\"") == 0)
+            if (strcmp(header[i], "\"\"\"name\"\"\"") == 0)
             {
                 name_col_index = i;
                 quotes_flag = 1;
@@ -220,7 +270,7 @@ int main(int argc, char const *argv[])
             INVALID_INPUT;
             exit(1);
         }
-
+        free(line);
         break;
     }
 
@@ -241,13 +291,15 @@ int main(int argc, char const *argv[])
         int userFound = -1;
 
         char *curr_line[num_of_cols];
+        
         procLn2ArrOfStrs(line, curr_line);
 
         // Get current line username
         char *username = curr_line[name_col_index];
         size_t lengthOfUsername = strlen(username);
 
-        // printf("249: %s\n", username);
+        int all_quotes = allQuotes(username);
+
         if(quotes_flag == 1){
             if (wrappedInQuotations(username) != 0)
             {
@@ -255,17 +307,26 @@ int main(int argc, char const *argv[])
                 exit(1);
             }
         }
-        // printf("WORKED\n");
         // iterate through all `tweeter_info` struct and check if user already exists
-        for (size_t i = 0; i < next_avail_index; i++)
+        if (lengthOfUsername == 0 || all_quotes == 0)
         {
-
-            if (strcmp(tweeter[i].name, username) == 0)
+            if (empty_user_index > -1)
             {
-                // if user exists, increase the count
-                tweeter[i].count++;
+                tweeter[empty_user_index].count++;
                 userFound = 1;
-                break;
+            }else{
+                userFound = 0;
+            }
+        } else {
+            for (size_t i = 0; i < next_avail_index; i++)
+            {
+                if (strcmp(tweeter[i].name, username) == 0)
+                {
+                    // if user exists, increase the count
+                    tweeter[i].count++;
+                    userFound = 1;
+                    break;
+                }
             }
         }
 
@@ -281,29 +342,28 @@ int main(int argc, char const *argv[])
             }
             continue;
         }
-
-        // if user not found, then create an entry in the `tweeter_info` array
-        tweeter[next_avail_index].name = (char *)malloc(sizeof(char) * (lengthOfUsername + 1));
-
-        if (tweeter[next_avail_index].name != NULL)
+        if (lengthOfUsername == 0 && empty_user_index == -1 || all_quotes == 0 && empty_user_index == -1)
         {
-            // printf("%s\n", pt);
-            for (size_t i = 0; i < lengthOfUsername+1; i++)
+            tweeter[next_avail_index].name = (char *)malloc(sizeof(char) * (lengthOfUsername + 1));
+            if (tweeter[next_avail_index].name != NULL)
             {
-                // If some invalid text shows up due to some quirk of C and some memory issues occur
-                if (isalpha(username[i]) != 0 || isdigit(username[i]) != 0 || username[i] == '_' || username[i] == '\"')
-                {
-                    tweeter[next_avail_index].name[i] = username[i];
-                } else {
-                    tweeter[next_avail_index].name[i] = '\0';
-                }
+                tweeter[next_avail_index].name = '\0';
+                tweeter[next_avail_index].count++;
+                empty_user_index = next_avail_index;
+                next_avail_index++;
             }
-            username[lengthOfUsername] = '\0';
-            
-            // strncpy(tweeter[next_avail_index].name, username, lengthOfUsername+1);
-            tweeter[next_avail_index].count++;
-            next_avail_index++; // update the pointer that tracks the entries in the `tweeter_info` struct
+        } else {
+            // if user not found, then create an entry in the `tweeter_info` array
+            tweeter[next_avail_index].name = (char *)malloc(sizeof(char) * (lengthOfUsername + 1));
+
+            if (tweeter[next_avail_index].name != NULL)
+            {                
+                strncpy(tweeter[next_avail_index].name, username, lengthOfUsername+1);
+                tweeter[next_avail_index].count++;
+                next_avail_index++; // update the pointer that tracks the entries in the `tweeter_info` struct
+            }
         }
+
 
         // free memory that was incurred by reading the current line
         for (size_t i = 0; i < num_of_cols; i++)
@@ -313,23 +373,10 @@ int main(int argc, char const *argv[])
                 free(curr_line[i]);
             }
         }
-        
     }
 
-    // Check `texx.txt` file to see how the output looks like.
-    // for (size_t i = 0; i < next_avail_index; i++)
-    // {
-    //     printf("Name: %s, Count: %d\n", tweeter[i].name, tweeter[i].count);
-    // }
-
-    /* TODO:
-        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-        !SORT tweeter[next_avail_index] based on next_avail_index[next_avail_index].count
-        !and output the 10.
-        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-     */
-
     qsort(tweeter, next_avail_index, sizeof(struct tweeter_info), comparator);
+    
 
     int minPossTweetrs = 9;
     if (next_avail_index <= minPossTweetrs)
@@ -337,7 +384,7 @@ int main(int argc, char const *argv[])
         for (int i = next_avail_index - 1; i >= 0; i--)
         {
             printf("%s: %d \n",
-                   tweeter[i].name, tweeter[i].count);
+                   removeQuotes(tweeter[i].name), tweeter[i].count);
         }
     }
     else
@@ -345,16 +392,9 @@ int main(int argc, char const *argv[])
         for (int i = next_avail_index - 1; i > next_avail_index - 11; i--)
         {
             printf("%s: %d \n",
-                   tweeter[i].name, tweeter[i].count);
+                   removeQuotes(tweeter[i].name), tweeter[i].count);
         }
     }
-
-    // printf("\n\n(Just UPDATED now)Tweeters Record sorted by Tweet Count:\n");
-    // for (int i = next_avail_index - 1; i > next_avail_index - 11; i--)
-    // {
-        // printf("%s: %d \n",
-        //        tweeter[i].name, tweeter[i].count);
-    // }
 
     fclose(file);
     return 0;
