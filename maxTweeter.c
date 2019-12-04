@@ -17,7 +17,6 @@ struct tweeter_info
 
 struct tweeter_info tweeter[NUM_LINES];
 int next_avail_index;
-int quotes_flag;
 int empty_user_index = -1;
 
 int getCommasCount(char *str)
@@ -34,64 +33,19 @@ int getCommasCount(char *str)
     return count_commas;
 }
 
-int wrappedInQuotations(char *str)
-{
-    if (str == NULL)
-    {
-        INVALID_INPUT;
-        exit(1);
-    }
-    int length = strlen(str) - 1;
-    if (length > 0 && str[0] == '\"' && str[1] == '\"' && str[2] == '\"' && str[length] == '\"' && str[length-1] == '\"' && str[length-2] == '\"')
-    {
-        return 0;
-    }
-    INVALID_INPUT;
-    exit(1);
-    return 0;
-}
-
-int allQuotes(char *str)
-{
-    if (str == NULL)
-    {
-        INVALID_INPUT;
-        exit(1);
-    }
-    // printf("mystr: %s\n", str);
-    int length = strlen(str);
-    for (size_t i = 0; i < length; i++)
-    {
-        if (str[i] != '\"')
-        {
-            return -1;
-        }
-    }
-    
-    return 0;
-}
-
 char * removeQuotes(char *str)
 {
-    if (quotes_flag == 0)
-    {
-        return str;
-    }
     if (str == NULL)
     {
-       return str;
+       INVALID_INPUT;
+       exit(1);
     }
-
     size_t length_b = strlen(str);
-    str = str + 3;
-
-    if (length_b - 3 == 3)
+    for (size_t i = 0; i < length_b-1; i++)
     {
-        str[0] = '\0';
-        return str;
+        str[i] = str[i+1];
     }
-    str[strlen(str) - 3] = '\0';
-
+    str[length_b - 2] = '\0'; 
     return str;
 }
 
@@ -113,9 +67,10 @@ void procLn2ArrOfStrs(char *str, char **splitted_array)
     int *count_ptr = (int *)malloc(sizeof(int));
     *count_ptr = 0;
     int comma_cnt = 0; // keep a comma count
+    size_t line_length = strlen(str);
 
     // we keep reallocating since we are extending the array size for every comma found
-    for (int i = 0; i < strlen(str); i++)
+    for (int i = 0; i < line_length; i++)
     {
         if (str[i] == ',')
         {
@@ -130,13 +85,32 @@ void procLn2ArrOfStrs(char *str, char **splitted_array)
     // pad the array with the ending index of the string - (n-1) in the end
     int *count_ptr_tmp = (int *)realloc(count_ptr, sizeof(int) * (alloc_size + 1));
     count_ptr = count_ptr_tmp;
-    *(count_ptr + alloc_size) = strlen(str) - 1;
+    *(count_ptr + alloc_size) = line_length - 1;
+
+
+    if(comma_cnt == 0){
+        splitted_array[0] = (char *)malloc(sizeof(char) * (line_length));
+        if (splitted_array[0] == NULL)
+        {
+            INVALID_INPUT;
+            exit(1);
+        }
+        strncpy(splitted_array[0], str, line_length);
+        splitted_array[0][line_length-1] = '\0';
+        if (count_ptr != NULL)
+        {
+            free(count_ptr);
+        }
+        return;
+    }
 
     /* BELOW we begin making the splits, and storing them in splitted_array*/
     // splitted_array is an array of strings (a double pointer)
 
     // Indicator variable (need it because of this crappy design)
     int indicate = 0;
+    int indicate2 = 1;
+    int quote_starts = 0;
     // printf("%d\n", alloc_size);
     for (int i = 0; i < alloc_size; i++)
     {
@@ -156,7 +130,9 @@ void procLn2ArrOfStrs(char *str, char **splitted_array)
         if (i > 0)
         {
             indicate = 1;
+            indicate2 = 0;
         }
+
         int curr_comma_index = *(count_ptr + i);
         int next_comma_index = *(count_ptr + i + 1);
         int size_to_alloc = next_comma_index - curr_comma_index - 1;
@@ -181,26 +157,40 @@ void procLn2ArrOfStrs(char *str, char **splitted_array)
             exit(0);
         }
 
-        for (int j = curr_comma_index; j < next_comma_index - 1; j++)
+        int last_ind = 0;
+
+        for (int j = curr_comma_index; j < next_comma_index + indicate2 - 1; j++)
         {
-            // TWITTER USERNAME RULES, either a letter, a number, and underscore
-            if (isalpha(str[j + indicate]) != 0 || isdigit(str[j + indicate]) != 0 || str[j + indicate] == '_' || str[j + indicate]  == '\"')
-            {
-                splitted_array[i][j - curr_comma_index] = str[j + indicate];
-            } else {
-                splitted_array[i][j - curr_comma_index] = '\0';
-                // printf("%c", str[j + indicate]);
-            }
-            // printf("[%d,%d,%d], ", i, j, j-curr_comma_index);
+            splitted_array[i][j - curr_comma_index] = str[j + indicate];
+            last_ind = j + indicate;
+            // printf("[%d,%d,%c], ", i, j, str[j + indicate]);
         }
-        splitted_array[i][size_to_alloc] = '\0';
+
+        // printf("Quote1: %c, Quote2: %c, Str: %s;\n", str[curr_comma_index + indicate], str[last_ind], str);
+        // printf("last_index: %d, strlen: %ld\n", last_ind, line_length);
+        splitted_array[i][size_to_alloc + indicate2] = '\0';
+
+        if (splitted_array[i][0] == '\"' && splitted_array[i][strlen(splitted_array[i]) - 1] != '\"' || splitted_array[i][0] != '\"' && splitted_array[i][strlen(splitted_array[i]) - 1] == '\"')
+        {
+            // printf("ERR @ %d: %s - %c - %c AND %c - %c\n\n", i, splitted_array[i], str[curr_comma_index + indicate], str[last_ind + indicate2 - 1], splitted_array[i][0], splitted_array[i][strlen(splitted_array[i]) - 2]);
+            // fprintf(stderr, "Infrererere: %c, %c\n", splitted_array[i][0],splitted_array[i][strlen(splitted_array[i]) - 2]);
+            INVALID_INPUT;
+            exit(0);
+        }
+
+        if (splitted_array[i][0] == '\"' && splitted_array[i][strlen(splitted_array[i]) - 1] == '\"' || splitted_array[i][0] == '\"' && splitted_array[i][strlen(splitted_array[i]) - 1] == '\"')
+        {
+            removeQuotes(splitted_array[i]);
+        }
         // printf("Size to alloc: %d\n", size_to_alloc);
         // printf("Splitted Array: %s\n", splitted_array[i]);
         // printf("\n%d\n", *(count_ptr + i));
         // printf("-----------\n");
     }
     // free count_ptr
-    free(count_ptr);
+    if(count_ptr != NULL){
+        free(count_ptr);
+    }
 }
 
 // comparator method to sort by count.
@@ -238,22 +228,12 @@ int main(int argc, char const *argv[])
         // HOW TO USE procLn2ArrOfStrs?
         char *header[num_of_cols]; // <---- 1) ALLOCATE AN ARRAY OF STRINGS LIKE THIS
         procLn2ArrOfStrs(line, header); // <---- 2) PASS IN THE LINE, AND ARRAY OF STRINGS to procLn2ArrOfStrs
-
+        // printf("Header name: %s\n",header[0]);
         for (int i = 0; i < num_of_cols; i++)
         {
             if (strcmp(header[i], "name") == 0)
             {
                 name_col_index = i;
-                break;
-            }
-        }
-
-        for (int i = 0; i < num_of_cols; i++)
-        {
-            if (strcmp(header[i], "\"\"\"name\"\"\"") == 0)
-            {
-                name_col_index = i;
-                quotes_flag = 1;
                 break;
             }
         }
@@ -267,10 +247,13 @@ int main(int argc, char const *argv[])
         // if name column doesn't exist, then exit
         if (name_col_index == -1)
         {
+            // printf("Unable to find name col index\n");
             INVALID_INPUT;
             exit(1);
         }
-        free(line);
+        if(line != NULL){
+            free(line); 
+        }
         break;
     }
 
@@ -279,7 +262,7 @@ int main(int argc, char const *argv[])
     int j = 0;
     while ((read = getline(&line, &len, file)) != -1)
     {
-
+        j++;
         // Exit program if the # of column of line don't match the # of columns
         // of the current line
         if ((getCommasCount(line) + 1) != num_of_cols)
@@ -298,17 +281,8 @@ int main(int argc, char const *argv[])
         char *username = curr_line[name_col_index];
         size_t lengthOfUsername = strlen(username);
 
-        int all_quotes = allQuotes(username);
-
-        if(quotes_flag == 1){
-            if (wrappedInQuotations(username) != 0)
-            {
-                INVALID_INPUT;
-                exit(1);
-            }
-        }
         // iterate through all `tweeter_info` struct and check if user already exists
-        if (lengthOfUsername == 0 || all_quotes == 0)
+        if (lengthOfUsername == 0)
         {
             if (empty_user_index > -1)
             {
@@ -342,7 +316,7 @@ int main(int argc, char const *argv[])
             }
             continue;
         }
-        if (lengthOfUsername == 0 && empty_user_index == -1 || all_quotes == 0 && empty_user_index == -1)
+        if (lengthOfUsername == 0 && empty_user_index == -1)
         {
             tweeter[next_avail_index].name = (char *)malloc(sizeof(char) * (lengthOfUsername + 1));
             if (tweeter[next_avail_index].name != NULL)
@@ -384,7 +358,7 @@ int main(int argc, char const *argv[])
         for (int i = next_avail_index - 1; i >= 0; i--)
         {
             printf("%s: %d \n",
-                   removeQuotes(tweeter[i].name), tweeter[i].count);
+                   tweeter[i].name, tweeter[i].count);
         }
     }
     else
@@ -392,7 +366,7 @@ int main(int argc, char const *argv[])
         for (int i = next_avail_index - 1; i > next_avail_index - 11; i--)
         {
             printf("%s: %d \n",
-                   removeQuotes(tweeter[i].name), tweeter[i].count);
+                   tweeter[i].name, tweeter[i].count);
         }
     }
 
