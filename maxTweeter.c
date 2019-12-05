@@ -38,6 +38,7 @@ int wrappedInQuotations(char *str)
 {
     if (str == NULL)
     {
+        // printf("FAILED\n");
         INVALID_INPUT;
         exit(1);
     }
@@ -55,6 +56,7 @@ int allQuotes(char *str)
 {
     if (str == NULL)
     {
+        // printf("FAILED\n");
         INVALID_INPUT;
         exit(1);
     }
@@ -75,8 +77,11 @@ char *removeQuotes(char *str)
 {
     if (str == NULL)
     {
-        INVALID_INPUT;
-        exit(1);
+        return str;
+    }
+    if (str[0] != '\"')
+    {
+        return str;
     }
     size_t length_b = strlen(str);
     for (size_t i = 0; i < length_b - 1; i++)
@@ -191,9 +196,9 @@ void procLn2ArrOfStrs(char *str, char **splitted_array)
         // printf("Size to alloc: %d\n", size_to_alloc);
         // printf("Splitted Array: %s\n", splitted_array[i]);
         // printf("\n%d\n", *(count_ptr + i));
-        // printf("-----------\n");
     }
     // free count_ptr
+    // printf("-----------\n");
     free(count_ptr);
 }
 
@@ -283,6 +288,7 @@ int main(int argc, char const *argv[])
         // of the current line
         if ((getCommasCount(line) + 1) != num_of_cols)
         {
+            // printf("FAILED\n");
             INVALID_INPUT;
             exit(0);
         }
@@ -299,6 +305,7 @@ int main(int argc, char const *argv[])
             {
                 if (wrappedInQuotations(curr_line[i]) == -1 && quotes_flag[i] == 1)
                 {
+                    // printf("FAILED\n");
                     INVALID_INPUT;
                     exit(1);
                 }
@@ -317,6 +324,7 @@ int main(int argc, char const *argv[])
         {
             if (wrappedInQuotations(username) != 0)
             {
+                // printf("FAILED\n");
                 INVALID_INPUT;
                 exit(1);
             }
